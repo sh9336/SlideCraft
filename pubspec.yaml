@@ -1,5 +1,6 @@
 name: cenamatic
-description: "A new Flutter project."
+description: "A new Flutterffmpeg_kit_flutter_full_gpl:
+    path: plugins/ffmpeg_kit_flutter_full_gpl-6.0.3roject."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -42,11 +43,13 @@ dependencies:
   share_plus: ^11.0.0
   image_picker: ^1.1.2
 
-  ffmpeg_kit_flutter_full_gpl: ^6.0.3
+  ffmpeg_kit_flutter_new: ^3.1.0
   chewie: ^1.10.0
   file_picker: ^10.1.2
   permission_handler: ^12.0.0+1
   flutter_launcher_icons: ^0.14.3
+  flutter_svg: ^2.1.0
+  google_fonts: ^8.0.2
 
 flutter_icons:
   android: true
@@ -78,8 +81,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  assets:
+   - assets/
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

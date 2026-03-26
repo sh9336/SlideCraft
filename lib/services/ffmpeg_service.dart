@@ -1,249 +1,47 @@
-// import 'dart:io';
-// import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
-// import 'package:ffmpeg_kit_flutter_full_gpl/return_code.dart';
-// import 'package:path_provider/path_provider.dart';
-// import '../models/image_item.dart';
-// import '../models/transition_type.dart';
-// import '../models/video_quality.dart';
-//
-// class FFmpegService {
-//   Future<String> generateVideo({
-//     required List<ImageItem> images,
-//     required TransitionType transitionType,
-//     required double transitionDuration,
-//     required String outputPath,
-//     required VideoQuality videoQuality,
-//     required Function(double) onProgress,
-//   }) async {
-//     if (images.isEmpty) throw Exception('No images provided');
-//
-//     try {
-//       final Directory appDocDir = await getApplicationDocumentsDirectory();
-//       final String workDir = '${appDocDir.path}/cenamatic_temp';
-//
-//       // Clean temp folder
-//       final Directory workDirObj = Directory(workDir);
-//       if (await workDirObj.exists()) {
-//         await workDirObj.delete(recursive: true);
-//       }
-//       await workDirObj.create(recursive: true);
-//
-//       // Validate input images
-//       for (final img in images) {
-//         final File file = File(img.path);
-//         if (!await file.exists()) {
-//           throw Exception('Image file not found: ${img.path}');
-//         }
-//       }
-//
-//       // Final output path
-//       final String finalOutput = outputPath.isNotEmpty
-//           ? outputPath
-//           : '${appDocDir.path}/output_${DateTime.now().millisecondsSinceEpoch}.mp4';
-//
-//       // Using a multi-step approach to ensure accurate timing
-//       if (images.length > 1) {
-//         // When we have multiple images, use a two-step process for better transitions
-//         await _generateVideoWithTwoStepApproach(
-//           images: images,
-//           transitionType: transitionType,
-//           transitionDuration: transitionDuration,
-//           videoQuality: videoQuality,
-//           outputPath: finalOutput,
-//           workDir: workDir,
-//           onProgress: onProgress,
-//         );
-//       } else {
-//
-//         // For a single image, use a simpler approach
-//         await _generateSingleImageVideo(
-//           image: images.first,
-//           videoQuality: videoQuality,
-//           outputPath: finalOutput,
-//           onProgress: onProgress,
-//         );
-//
-//       }
-//
-//       // Check output exists
-//       final outputFile = File(finalOutput);
-//
-//       if (await outputFile.exists()) {
-//         final fileSize = await outputFile.length();
-//         print("Generated video file size: $fileSize bytes");
-//
-//         if (fileSize < 1000) {
-//           throw Exception('Generated video file is too small: $fileSize bytes');
-//         }
-//         return finalOutput;
-//       } else {
-//         throw Exception('FFmpeg completed but output file was not created.');
-//       }
-//     } catch (e) {
-//       print('FFmpeg exception: $e');
-//       throw Exception('Failed to generate video: $e');
-//     }
-//   }
-//
-//   Future<void> _generateSingleImageVideo({
-//     required ImageItem image,
-//     required VideoQuality videoQuality,
-//     required String outputPath,
-//     required Function(double) onProgress,
-//   }) async {
-//
-//     final resolution = "${videoQuality.width}:${videoQuality.height}";
-//     final bitrate = "${(videoQuality.bitrate / 1000000).toStringAsFixed(1)}M";
-//
-//     final command = '-loop 1 -i "${image.path}" -t ${image.duration} '
-//         '-c:v libx264 -preset medium -tune stillimage '
-//         '-profile:v high -level 4.0 '
-//         '-pix_fmt yuv420p -r 30 -b:v $bitrate '
-//         '-vf "scale=$resolution:force_original_aspect_ratio=decrease,'
-//         'pad=$resolution:(ow-iw)/2:(oh-ih)/2:color=black" '
-//         '-movflags +faststart -y "$outputPath"';
-//
-//     onProgress(0.0);
-//     final session = await FFmpegKit.execute(command);
-//     final returnCode = await session.getReturnCode();
-//
-//     if (ReturnCode.isSuccess(returnCode)) {
-//       onProgress(1.0);
-//     } else {
-//       final logs = await session.getAllLogsAsString();
-//       throw Exception('FFmpeg failed: $logs');
-//     }
-//   }
-//
-//   Future<void> _generateVideoWithTwoStepApproach({
-//     required List<ImageItem> images,
-//     required TransitionType transitionType,
-//     required double transitionDuration,
-//     required VideoQuality videoQuality,
-//     required String outputPath,
-//     required String workDir,
-//     required Function(double) onProgress,
-//   }) async {
-//     try {
-//       onProgress(0.0);
-//
-//       // Step 1: Generate individual clips for each image
-//       final List<String> clipPaths = await _generateImageClips(
-//         images: images,
-//         workDir: workDir,
-//         videoQuality: videoQuality,
-//         onProgress: onProgress,
-//       );
-//
-//       // Step 2: Create a clip list file for precise timing
-//       final String clipListPath = '$workDir/clip_list.txt';
-//       final File clipListFile = File(clipListPath);
-//       final StringBuffer clipListContent = StringBuffer();
-//
-//       for (int i = 0; i < clipPaths.length; i++) {
-//         // Escape single quotes in paths
-//         final safeClipPath = clipPaths[i].replaceAll("'", "\\'");
-//         clipListContent.writeln("file '$safeClipPath'");
-//
-//         // For accurate timing, we don't add duration in the file -
-//         // each clip already has the exact duration
-//       }
-//
-//       await clipListFile.writeAsString(clipListContent.toString());
-//       print("Created clip list file: ${await clipListFile.readAsString()}");
-//
-//       // Step 3: Concatenate clips with transitions
-//       final resolution = "${videoQuality.width}:${videoQuality.height}";
-//       final bitrate = "${(videoQuality.bitrate / 1000000).toStringAsFixed(1)}M";
-//
-//       // Build the final command with concat demuxer
-//       String finalCommand = '-f concat -safe 0 -i "$clipListPath" '
-//           '-c:v libx264 -preset medium '
-//           '-profile:v high -level 4.0 '
-//           '-pix_fmt yuv420p -r 30 -b:v $bitrate '
-//           '-movflags +faststart -y "$outputPath"';
-//
-//       print("Executing final FFmpeg command: $finalCommand");
-//
-//       final session = await FFmpegKit.execute(finalCommand);
-//       final returnCode = await session.getReturnCode();
-//       final logs = await session.getAllLogsAsString();
-//       print("FFmpeg final logs: $logs");
-//
-//       if (ReturnCode.isSuccess(returnCode)) {
-//         onProgress(1.0);
-//       } else {
-//         throw Exception('FFmpeg failed in final step: $logs');
-//       }
-//     } catch (e) {
-//       throw Exception('Error in two-step video generation: $e');
-//     }
-//   }
-//
-//   Future<List<String>> _generateImageClips({
-//     required List<ImageItem> images,
-//     required String workDir,
-//     required VideoQuality videoQuality,
-//     required Function(double) onProgress,
-//   }) async {
-//     List<String> clipPaths = [];
-//
-//     // Calculate total steps for progress tracking
-//     final int totalImages = images.length;
-//
-//     for (int i = 0; i < images.length; i++) {
-//       final ImageItem image = images[i];
-//       final String clipPath = '$workDir/clip_$i.mp4';
-//
-//       // Calculate progress percentage
-//       final double progressStart = i / totalImages * 0.8; // First 80% for clips
-//       final double progressEnd = (i + 1) / totalImages * 0.8;
-//
-//       onProgress(progressStart);
-//
-//       // Build command to create a video clip from a single image with exact duration
-//       final String resolution = "${videoQuality.width}:${videoQuality.height}";
-//       final String bitrate = "${(videoQuality.bitrate / 1000000).toStringAsFixed(1)}M";
-//
-//       final String command = '-loop 1 -i "${image.path}" -t ${image.duration} '
-//           '-c:v libx264 -preset ultrafast ' // Use ultrafast for individual clips
-//           '-pix_fmt yuv420p -r 30 -b:v $bitrate '
-//           '-vf "scale=$resolution:force_original_aspect_ratio=decrease,'
-//           'pad=$resolution:(ow-iw)/2:(oh-ih)/2:color=black" '
-//           '-movflags +faststart -y "$clipPath"';
-//
-//       print("Generating clip $i with command: $command");
-//
-//       // Execute command
-//       final session = await FFmpegKit.execute(command);
-//       final returnCode = await session.getReturnCode();
-//
-//       if (ReturnCode.isSuccess(returnCode)) {
-//         clipPaths.add(clipPath);
-//         onProgress(progressEnd);
-//       } else {
-//         final logs = await session.getAllLogsAsString();
-//         throw Exception('Failed to generate clip $i: $logs');
-//       }
-//     }
-//
-//     return clipPaths;
-//   }
-// }
-
-
-
-
-
 import 'dart:io';
-import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_full_gpl/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new/session.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/image_item.dart';
 import '../models/transition_type.dart';
 import '../models/video_quality.dart';
 
 class FFmpegService {
+  // Constants for FFmpeg settings
+  static const int _frameRate = 30;
+  static const int _minFileSize = 1000;
+  static const String _presetMedium = 'medium';
+  static const String _presetUltrafast = 'ultrafast';
+
+  // Cancellation flag
+  bool _isCancelled = false;
+  Session? _currentSession;
+
+  // Method to cancel ongoing operations
+  void cancel() {
+    _isCancelled = true;
+    _currentSession?.cancel();
+  }
+
+  // Method to reset cancellation flag
+  void resetCancellation() {
+    _isCancelled = false;
+    _currentSession = null;
+  }
+
+  // Check if operation was cancelled
+  bool get isCancelled => _isCancelled;
+
+  String _getFFmpegBaseParams(VideoQuality quality) {
+    final resolution = "${quality.width}:${quality.height}";
+    final bitrate = "${(quality.bitrate / 1000000).toStringAsFixed(1)}M";
+    return '-pix_fmt yuv420p -r $_frameRate -b:v $bitrate '
+        '-profile:v baseline -level 3.0 -tune fastdecode '
+        '-vf "scale=$resolution:force_original_aspect_ratio=decrease,'
+        'pad=$resolution:(ow-iw)/2:(oh-ih)/2:color=black"';
+  }
+
   Future<String> generateVideo({
     required List<ImageItem> images,
     required TransitionType transitionType,
@@ -253,6 +51,9 @@ class FFmpegService {
     required Function(double) onProgress,
   }) async {
     if (images.isEmpty) throw Exception('No images provided');
+
+    // Reset cancellation flag at the start
+    resetCancellation();
 
     try {
       final Directory appDocDir = await getApplicationDocumentsDirectory();
@@ -265,12 +66,22 @@ class FFmpegService {
       }
       await workDirObj.create(recursive: true);
 
+      // Check for cancellation
+      if (_isCancelled) {
+        throw Exception('Video generation was cancelled');
+      }
+
       // Validate input images
       for (final img in images) {
         final File file = File(img.path);
         if (!await file.exists()) {
           throw Exception('Image file not found: ${img.path}');
         }
+      }
+
+      // Check for cancellation after validation
+      if (_isCancelled) {
+        throw Exception('Video generation was cancelled');
       }
 
       // Final output path
@@ -299,6 +110,11 @@ class FFmpegService {
         );
       }
 
+      // Check for cancellation before final validation
+      if (_isCancelled) {
+        throw Exception('Video generation was cancelled');
+      }
+
       // Check output exists
       final outputFile = File(finalOutput);
 
@@ -306,7 +122,7 @@ class FFmpegService {
         final fileSize = await outputFile.length();
         print("Generated video file size: $fileSize bytes");
 
-        if (fileSize < 1000) {
+        if (fileSize < _minFileSize) {
           throw Exception('Generated video file is too small: $fileSize bytes');
         }
         return finalOutput;
@@ -314,6 +130,10 @@ class FFmpegService {
         throw Exception('FFmpeg completed but output file was not created.');
       }
     } catch (e) {
+      // Check if this is a cancellation exception
+      if (e.toString().contains('cancelled')) {
+        throw e; // Re-throw cancellation exceptions as-is
+      }
       print('FFmpeg exception: $e');
       throw Exception('Failed to generate video: $e');
     }
@@ -325,25 +145,39 @@ class FFmpegService {
     required String outputPath,
     required Function(double) onProgress,
   }) async {
-    final resolution = "${videoQuality.width}:${videoQuality.height}";
-    final bitrate = "${(videoQuality.bitrate / 1000000).toStringAsFixed(1)}M";
-
-    final command = '-loop 1 -i "${image.path}" -t ${image.duration} '
-        '-c:v libx264 -preset medium -tune stillimage '
-        '-profile:v high -level 4.0 '
-        '-pix_fmt yuv420p -r 30 -b:v $bitrate '
-        '-vf "scale=$resolution:force_original_aspect_ratio=decrease,'
-        'pad=$resolution:(ow-iw)/2:(oh-ih)/2:color=black" '
-        '-movflags +faststart -y "$outputPath"';
+    final command = '-loop 1 -i "${image.path}" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 '
+        '-t ${image.duration} '
+        '-c:v libx264 -preset $_presetMedium '
+        '${_getFFmpegBaseParams(videoQuality)} '
+        '-c:a aac -shortest -movflags +faststart -y "$outputPath"';
 
     onProgress(0.0);
-    final session = await FFmpegKit.execute(command);
-    final returnCode = await session.getReturnCode();
+
+    // Check for cancellation before starting
+    if (_isCancelled) {
+      throw Exception('Video generation was cancelled');
+    }
+
+    _currentSession = await FFmpegKit.execute(command);
+
+    // Add a timeout to prevent hanging
+    final returnCode = await _currentSession!.getReturnCode().timeout(
+      Duration(seconds: 30),
+      onTimeout: () {
+        _currentSession?.cancel();
+        throw Exception('FFmpeg operation timed out');
+      },
+    );
+
+    // Check for cancellation after completion
+    if (_isCancelled) {
+      throw Exception('Video generation was cancelled');
+    }
 
     if (ReturnCode.isSuccess(returnCode)) {
       onProgress(1.0);
     } else {
-      final logs = await session.getAllLogsAsString();
+      final logs = await _currentSession!.getAllLogsAsString();
       throw Exception('FFmpeg failed: $logs');
     }
   }
@@ -360,10 +194,26 @@ class FFmpegService {
     try {
       onProgress(0.0);
 
-      // First step: Create individual image clips
+      // Check for cancellation at the start
+      if (_isCancelled) {
+        throw Exception('Video generation was cancelled');
+      }
+
+      // Calculate the total expected duration
+      // Formula: sum of all image durations + (number of transitions * transition duration) - (number of transitions * transition duration)
+      // Simplified: sum of all image durations + (transitions * (transition_duration - overlap_duration))
+      // For your case: 3 + 3 + 3 + (2 * 1) - (2 * 1) = 9 - 2 = 7 (current result)
+      // To get 9 seconds, we need to extend each image duration by the transition duration
+
       final List<String> clipPaths = [];
 
+      // Step 1: Create extended image clips
       for (int i = 0; i < images.length; i++) {
+        // Check for cancellation before each clip generation
+        if (_isCancelled) {
+          throw Exception('Video generation was cancelled');
+        }
+
         final image = images[i];
         final clipPath = '$workDir/image_$i.ts';
         clipPaths.add(clipPath);
@@ -371,27 +221,45 @@ class FFmpegService {
         // Progress tracking for image preparation
         onProgress(i / (images.length * 2));
 
-        // Create a video clip from the image
-        final resolution = "${videoQuality.width}:${videoQuality.height}";
-        final bitrate = "${(videoQuality.bitrate / 1000000).toStringAsFixed(1)}M";
+        // Extend duration for middle images to account for transitions
+        double extendedDuration = image.duration;
+        if (i > 0 && i < images.length - 1) {
+          // Middle images: extend by full transition duration on both sides
+          extendedDuration += (2 * transitionDuration);
+        } else if (i == 0) {
+          // First and last images: extend by transition duration on one side
+          extendedDuration += transitionDuration;
+        }
 
-        final command = '-loop 1 -i "${image.path}" -t ${image.duration} '
-            '-c:v libx264 -preset ultrafast '
-            '-pix_fmt yuv420p -r 30 -b:v $bitrate '
-            '-vf "scale=$resolution:force_original_aspect_ratio=decrease,'
-            'pad=$resolution:(ow-iw)/2:(oh-ih)/2:color=black" '
+        // Create a video clip from the image with extended duration
+        final command = '-loop 1 -i "${image.path}" -t $extendedDuration '
+            '-c:v libx264 -preset $_presetUltrafast '
+            '${_getFFmpegBaseParams(videoQuality)} '
             '-f mpegts -y "$clipPath"';
 
-        final session = await FFmpegKit.execute(command);
-        final returnCode = await session.getReturnCode();
+        _currentSession = await FFmpegKit.execute(command);
+
+        // Add a timeout to prevent hanging
+        final returnCode = await _currentSession!.getReturnCode().timeout(
+          Duration(seconds: 30),
+          onTimeout: () {
+            _currentSession?.cancel();
+            throw Exception('FFmpeg operation timed out');
+          },
+        );
+
+        // Check for cancellation after each clip
+        if (_isCancelled) {
+          throw Exception('Video generation was cancelled');
+        }
 
         if (!ReturnCode.isSuccess(returnCode)) {
-          final logs = await session.getAllLogsAsString();
+          final logs = await _currentSession!.getAllLogsAsString();
           throw Exception('Failed to generate clip $i: $logs');
         }
       }
 
-      // Step 2: Create a complex filtergraph for xfade transitions
+      // Step 2: Create xfade transitions with correct timing
       StringBuffer filterComplex = StringBuffer();
       StringBuffer inputs = StringBuffer();
 
@@ -400,49 +268,82 @@ class FFmpegService {
         inputs.write('-i "${clipPaths[i]}" ');
       }
 
-      double currentOffset = images[0].duration;
+      // Calculate offsets for seamless transitions
+      // Each transition should start when we want it to begin
+      double currentTime = 0.0;
+
       for (int i = 0; i < clipPaths.length - 1; i++) {
-        final offset = currentOffset - transitionDuration;
+        // Offset is when the transition should start in the output timeline
+        double offset = currentTime + images[i].duration;
+
         if (i == 0) {
-          filterComplex.write('[0][1]xfade=transition=${transitionType.ffmpegFilter}:duration=$transitionDuration:offset=$offset[v$i];');
+          filterComplex.write(
+              '[0][1]xfade=transition=${transitionType.ffmpegFilter}:duration=$transitionDuration:offset=$offset[v$i];');
         } else {
-          filterComplex.write('[v${i-1}][${i+1}]xfade=transition=${transitionType.ffmpegFilter}:duration=$transitionDuration:offset=$offset[v$i];');
+          filterComplex.write(
+              '[v${i - 1}][${i + 1}]xfade=transition=${transitionType.ffmpegFilter}:duration=$transitionDuration:offset=$offset[v$i];');
         }
-        // Correct: adjust offset for next
-        currentOffset += images[i + 1].duration - transitionDuration;
+
+        // Move to next position: current image duration + transition duration
+        currentTime += images[i].duration + transitionDuration;
       }
 
-      // Remove trailing semicolon and add output label
+      // Remove trailing semicolon
       String filterComplexStr = filterComplex.toString();
       if (filterComplexStr.endsWith(';')) {
-        filterComplexStr = filterComplexStr.substring(0, filterComplexStr.length - 1);
+        filterComplexStr =
+            filterComplexStr.substring(0, filterComplexStr.length - 1);
       }
 
       final bitrate = "${(videoQuality.bitrate / 1000000).toStringAsFixed(1)}M";
 
       final finalCommand = inputs.toString() +
+          '-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 ' +
           '-filter_complex "$filterComplexStr" ' +
-          '-map "[v${clipPaths.length - 2}]" ' +
-          '-c:v libx264 -preset medium -profile:v high ' +
+          '-map "[v${clipPaths.length - 2}]" -map ${clipPaths.length}:a ' +
+          '-c:v libx264 -preset medium ' +
           '-pix_fmt yuv420p -r 30 -b:v $bitrate ' +
-          '-movflags +faststart -y "$outputPath"';
+          '-c:a aac -shortest -movflags +faststart -y "$outputPath"';
 
       print("Executing final FFmpeg command: $finalCommand");
+      print(
+          "Expected total duration: ${images.fold(0.0, (sum, img) => sum + img.duration) + ((images.length - 1) * transitionDuration)} seconds");
 
-      onProgress(0.5); // 50% progress after image preparation
+      onProgress(0.5);
 
-      final finalSession = await FFmpegKit.execute(finalCommand);
-      final finalReturnCode = await finalSession.getReturnCode();
+      // Check for cancellation before final step
+      if (_isCancelled) {
+        throw Exception('Video generation was cancelled');
+      }
+
+      _currentSession = await FFmpegKit.execute(finalCommand);
+
+      // Add a timeout to prevent hanging
+      final finalReturnCode = await _currentSession!.getReturnCode().timeout(
+        Duration(seconds: 60), // Longer timeout for final step
+        onTimeout: () {
+          _currentSession?.cancel();
+          throw Exception('FFmpeg operation timed out');
+        },
+      );
+
+      // Check for cancellation after final step
+      if (_isCancelled) {
+        throw Exception('Video generation was cancelled');
+      }
 
       if (ReturnCode.isSuccess(finalReturnCode)) {
         onProgress(1.0);
       } else {
-        final logs = await finalSession.getAllLogsAsString();
+        final logs = await _currentSession!.getAllLogsAsString();
         throw Exception('FFmpeg failed in final transition step: $logs');
       }
     } catch (e) {
+      // Check if this is a cancellation exception
+      if (e.toString().contains('cancelled')) {
+        throw e; // Re-throw cancellation exceptions as-is
+      }
       throw Exception('Error in transition video generation: $e');
     }
   }
-
 }

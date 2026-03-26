@@ -1,26 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:permission_handler/permission_handler.dart'; // Import permission handler
+import 'package:permission_handler/permission_handler.dart';
 import 'screens/home_screen.dart';
 import 'providers/editor_provider.dart';
+import 'constants/app_theme.dart';
 
 void main() async {
-  // Ensure WidgetsFlutterBinding is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Request storage permission before running the app
-  await _requestPermission();
-
   runApp(MyApp());
+  
+  // Delay background tasks to ensure the UI paints before the system dialog fights for resources
+  Future.delayed(const Duration(milliseconds: 1000), () {
+    _requestPermission();
+  });
 }
 
 Future<void> _requestPermission() async {
-  // Check if storage permission is granted
-  PermissionStatus status = await Permission.storage.status;
+  try {
+    PermissionStatus status = await Permission.storage.status;
 
-  // If permission is not granted, request it
-  if (!status.isGranted) {
-    await Permission.storage.request();
+    if (!status.isGranted) {
+      status = await Permission.storage.request();
+
+      if (!status.isGranted) {
+        status = await Permission.camera.request();
+      }
+
+      print('Storage permission status: $status');
+    }
+  } catch (e) {
+    print('Error requesting permissions: $e');
   }
 }
 
@@ -30,19 +40,9 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => EditorProvider(),
       child: MaterialApp(
-        title: 'Image Video Editor',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          brightness: Brightness.light,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-          useMaterial3: true,
-        ),
-        darkTheme: ThemeData(
-          primarySwatch: Colors.blue,
-          brightness: Brightness.dark,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-          useMaterial3: true,
-        ),
+        title: 'SlideCraft',
+        theme: AppTheme.lightTheme(),
+        darkTheme: AppTheme.darkTheme(),
         themeMode: ThemeMode.system,
         debugShowCheckedModeBanner: false,
         home: HomeScreen(),
@@ -50,3 +50,4 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+

@@ -11,7 +11,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
 import 'dart:typed_data';
 
-
 class VideoPreviewScreen extends StatefulWidget {
   @override
   _VideoPreviewScreenState createState() => _VideoPreviewScreenState();
@@ -134,6 +133,14 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
         return;
       }
 
+      // Validate file size
+      final fileSize = await sourceFile.length();
+      if (fileSize < 1000) {
+        _showSnackBar('Video file appears to be corrupted or empty',
+            isError: true);
+        return;
+      }
+
       // Request permissions for Android
       if (Platform.isAndroid) {
         var status = await Permission.storage.request();
@@ -160,12 +167,15 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
       String? newFileName = await showDialog<String>(
         context: context,
         builder: (BuildContext context) {
-          final TextEditingController fileNameController = TextEditingController(text: defaultFileName);
+          final TextEditingController fileNameController =
+              TextEditingController(text: defaultFileName);
 
           return AlertDialog(
             backgroundColor: Theme.of(context).colorScheme.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Text('Save Video As',
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text(
+              'Save Video As',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -180,7 +190,10 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                fillColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceVariant
+                    .withOpacity(0.3),
               ),
               autofocus: true,
             ),
@@ -287,6 +300,14 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
 
     if (!await sourceFile.exists()) {
       _showSnackBar('Video file not found', isError: true);
+      return;
+    }
+
+    // Validate file size
+    final fileSize = await sourceFile.length();
+    if (fileSize < 1000) {
+      _showSnackBar('Video file appears to be corrupted or empty',
+          isError: true);
       return;
     }
 
@@ -412,10 +433,10 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
                     child: videoPath == null
                         ? _buildPlaceholder('No video available')
                         : _hasError
-                        ? _buildErrorDisplay()
-                        : !_isInitialized
-                        ? _buildLoadingDisplay()
-                        : Chewie(controller: _chewieController!),
+                            ? _buildErrorDisplay()
+                            : !_isInitialized
+                                ? _buildLoadingDisplay()
+                                : Chewie(controller: _chewieController!),
                   ),
                 ),
               ),
@@ -450,28 +471,46 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
   }
 
   Widget _buildErrorDisplay() {
+    final isDecoderError = _errorMessage.toLowerCase().contains('preview') ||
+        _errorMessage.toLowerCase().contains('load');
+
     return SingleChildScrollView(
       child: Container(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.error_outline,
-              color: Colors.red,
-              size: 64,
+              isDecoderError ? Icons.videocam_off_outlined : Icons.error_outline,
+              color: Colors.white.withOpacity(0.7),
+              size: 48,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
-              _errorMessage,
-              style: TextStyle(
+              isDecoderError
+                  ? 'Preview Unavailable'
+                  : 'Something went wrong',
+              style: const TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 8),
+            Text(
+              isDecoderError
+                  ? 'Your device\'s video decoder couldn\'t load the preview. '
+                    'Don\'t worry — saving or sharing the video will work perfectly.'
+                  : _errorMessage,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
                 setState(() {
@@ -480,15 +519,16 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
                 });
                 _initializePlayer();
               },
-              icon: Icon(Icons.refresh),
-              label: Text('Retry'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade800,
+                backgroundColor: Colors.white.withOpacity(0.15),
                 foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                elevation: 0,
               ),
             ),
           ],

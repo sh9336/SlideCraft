@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/editor_provider.dart';
 import '../models/transition_type.dart';
+import '../constants/ui_constants.dart';
 
+/// Japandi transition selector — tonal layering, no hard borders.
 class TransitionSelector extends StatelessWidget {
   const TransitionSelector({super.key});
 
@@ -17,9 +19,9 @@ class TransitionSelector extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.2,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 1.0, // Square cells — prevents overflow
           ),
           itemCount: TransitionType.values.length,
           itemBuilder: (context, index) {
@@ -32,77 +34,57 @@ class TransitionSelector extends StatelessWidget {
                 onTap: () {
                   provider.setTransitionType(transition);
                 },
-                borderRadius: BorderRadius.circular(12),
-                splashColor: theme.colorScheme.primary.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(UIConstants.cardBorderRadius),
                 child: Ink(
                   decoration: BoxDecoration(
+                    // Tonal layering — no borders
                     color: isSelected
-                        ? theme.colorScheme.primary.withOpacity(0.15)
-                        : theme.colorScheme.surfaceVariant.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.outline.withOpacity(0.3),
-                      width: isSelected ? 2 : 1,
-                    ),
-                    boxShadow: isSelected ? [
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withOpacity(0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      )
-                    ] : null,
+                        ? theme.colorScheme.secondaryContainer
+                        : theme.colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(UIConstants.cardBorderRadius),
                   ),
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Transition Icon with animated container
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? theme.colorScheme.primary.withOpacity(0.2)
-                                  : Colors.transparent,
-                              shape: BoxShape.circle,
+                          // Icon — monoline, no extra padding
+                          _buildTransitionIcon(transition, theme, isSelected),
+                          const SizedBox(height: 4),
+                          // Label — all-caps functional
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              transition.displayName.toUpperCase(),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                color: isSelected
+                                    ? theme.colorScheme.secondary
+                                    : theme.colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            child: _buildTransitionIcon(transition, theme, isSelected),
-                          ),
-                          const SizedBox(height: 6),
-
-                          // Transition Name
-                          Text(
-                            transition.displayName,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
-
-                      // Selected Indicator
+                      // Selected check — secondary accent
                       if (isSelected)
                         Positioned(
-                          top: 6,
-                          right: 6,
+                          top: 4,
+                          right: 4,
                           child: Container(
-                            padding: const EdgeInsets.all(1),
+                            padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primary,
+                              color: theme.colorScheme.secondary,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.check,
-                              color: Colors.white,
+                              color: theme.colorScheme.onSecondary,
                               size: 10,
                             ),
                           ),
@@ -119,12 +101,14 @@ class TransitionSelector extends StatelessWidget {
   }
 
   Widget _buildTransitionIcon(TransitionType type, ThemeData theme, bool isSelected) {
-    final iconColor = isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant;
-    final iconSize = 24.0;
+    final iconColor = isSelected
+        ? theme.colorScheme.secondary
+        : theme.colorScheme.onSurface.withOpacity(0.6);
+    const iconSize = 22.0;
 
     switch (type) {
       case TransitionType.fade:
-        return Icon(Icons.blur_on, color: iconColor, size: iconSize);
+        return Icon(Icons.blur_on_outlined, color: iconColor, size: iconSize);
       case TransitionType.slideleft:
         return Icon(Icons.arrow_back, color: iconColor, size: iconSize);
       case TransitionType.slideright:
@@ -134,7 +118,7 @@ class TransitionSelector extends StatelessWidget {
       case TransitionType.circleclose:
         return Icon(Icons.radio_button_checked, color: iconColor, size: iconSize);
       case TransitionType.dissolve:
-        return Icon(Icons.blur_circular, color: iconColor, size: iconSize);
+        return Icon(Icons.blur_circular_outlined, color: iconColor, size: iconSize);
       case TransitionType.wipeleft:
         return Icon(Icons.west, color: iconColor, size: iconSize);
       case TransitionType.wipedown:
@@ -142,9 +126,9 @@ class TransitionSelector extends StatelessWidget {
       case TransitionType.smoothleft:
         return Icon(Icons.trending_flat, color: iconColor, size: iconSize);
       case TransitionType.pixelize:
-        return Icon(Icons.grid_view, color: iconColor, size: iconSize);
+        return Icon(Icons.grid_view_outlined, color: iconColor, size: iconSize);
       default:
-        return Icon(Icons.blur_on, color: iconColor, size: iconSize);
+        return Icon(Icons.blur_on_outlined, color: iconColor, size: iconSize);
     }
   }
-}
+}
