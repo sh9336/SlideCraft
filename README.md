@@ -43,4 +43,4 @@ SlideCraft strictly follows an intentional fusion of Japanese wabi-sabi and Scan
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Privacy Policy
-Please refer to our [Privacy Policy](PRIVACY_POLICY.md) for information regarding how we handle your data.
+Please refer to our [Privacy Policy](docs/index.md) for information regarding how we handle your data.
