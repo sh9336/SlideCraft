@@ -22,4 +22,4 @@ If you have any questions or suggestions about our Privacy Policy, please open a
 
 **Developer Contact Details:**
 - **Name:** Saurabh Chauhan
-- **Email:** saurabhchauhan9336@gmail.com
+- **Email:** saurabh25krypton2022@gmail.com
