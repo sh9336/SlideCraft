@@ -6,7 +6,7 @@
 Welcome to SlideCraft! This Privacy Policy outlines our practices regarding data collection, usage, and handling when you use our mobile application.
 
 ## Data Collection and Usage
-SlideCraft respspcts your privacy and is built with a privacy-first approach. 
+SlideCraft respects your privacy and is built with a privacy-first approach. 
 - **Offline First**: SlideCraft operates locally on your device. We do not require you to create an account, nor do we collect, harvest, or transmit your personal data to remote servers.
 - **Media Access**: We only request necessary permissions to access your device's photos, files, and camera. This is strictly for the purpose of allowing you to select images to create your cinematic slideshows within the app.
 - **Local Processing**: Video rendering via FFmpeg and all image processing functions are performed locally on your device. Your media remains yours and stays on your device.
